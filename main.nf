@@ -3,18 +3,18 @@
 /*
  * SET UP CONFIGURATION VARIABLES
  */
-bam = Channel
-    .fromPath("${params.input_folder}/${params.bam_file_prefix}.bam")
-    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
-    .map { bam -> tuple(bam.simpleName, bam) }
+cram = Channel
+    .fromPath("${params.input_folder}/${params.cram_file_prefix}.cram")
+    .ifEmpty { exit 1, "${params.input_folder}/${params.cram_file_prefix}.cram not found.\nPlease specify --input_folder option (--input_folder cramfolder)"}
+    .map { cram -> tuple(cram.simpleName, cram) }
 
-if (params.get_bai) {
-bai = Channel
-    .fromPath("${params.input_folder}/${params.bam_file_prefix}*.bai")
-    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}*.bai not found.\nPlease specify ensure that your BAM index(es) are in your input_folder"}
-    .map { bai -> tuple(bai.simpleName, bai) }
+if (params.get_crai) {
+crai = Channel
+    .fromPath("${params.input_folder}/${params.cram_file_prefix}*.crai")
+    .ifEmpty { exit 1, "${params.input_folder}/${params.cram_file_prefix}*.crai not found.\nPlease specify ensure that your cram index(es) are in your input_folder"}
+    .map { crai -> tuple(crai.simpleName, crai) }
 
-completeChannel = bam.combine(bai, by: 0)
+completeChannel = cram.combine(crai, by: 0)
 }
 
 ref = Channel
@@ -36,8 +36,8 @@ log.info """=======================================================
 ======================================================="""
 def summary = [:]
 summary['Pipeline Name']    = 'TARDIS'
-summary['Bam file']         = "${params.input_folder}/${params.bam_file_prefix}*.bam"
-summary['Bam index file']   = "${params.input_folder}/${params.bam_file_prefix}*.bam.bai"
+summary['cram file']         = "${params.input_folder}/${params.cram_file_prefix}*.cram"
+summary['cram index file']   = "${params.input_folder}/${params.cram_file_prefix}*.cram.crai"
 summary['Sonic file']       = params.sonic
 summary['Reference genome'] = params.ref
 summary['Output dir']       = params.outdir
@@ -45,30 +45,30 @@ summary['Working dir']      = workflow.workDir
 log.info summary.collect { k,v -> "${k.padRight(15)}: $v" }.join("\n")
 log.info "========================================="
 
-if (!params.get_bai) {
-  process preprocess_bam{
+if (!params.get_crai) {
+  process preprocess_cram{
 
-  tag "${bam}"
+  tag "${cram}"
 	container 'lifebitai/samtools'
 
   input:
-  set val(name), file(bam) from bam
+  set val(name), file(cram) from cram
 
   output:
-  set val(name), file("ready/${bam}"), file("ready/${bam}.bai") into completeChannel
+  set val(name), file("ready/${cram}"), file("ready/${cram}.crai") into completeChannel
 
   script:
   """
   mkdir ready
-  [[ `samtools view -H ${bam} | grep '@RG' | wc -l`   > 0 ]] && { mv $bam ready;}|| { picard AddOrReplaceReadGroups \
-  I=${bam} \
-  O=ready/${bam} \
+  [[ `samtools view -H ${cram} | grep '@RG' | wc -l`   > 0 ]] && { mv $cram ready;}|| { picard AddOrReplaceReadGroups \
+  I=${cram} \
+  O=ready/${cram} \
   RGID=${params.rgid} \
   RGLB=${params.rglb} \
   RGPL=${params.rgpl} \
   RGPU=${params.rgpu} \
   RGSM=${params.rgsm};}
-  cd ready ;samtools index ${bam};
+  cd ready ;samtools index ${cram};
   """
   }
 }
@@ -76,11 +76,11 @@ if (!params.get_bai) {
 
 
 process tardis {
-  tag "$bam_name"
+  tag "$cram_name"
 	publishDir "${params.outdir}", mode: 'copy'
 
 	input:
-  set val(bam_name), file(bam), file(bai) from completeChannel
+  set val(cram_name), file(cram), file(crai) from completeChannel
 	file ref from ref
 	file sonic from sonic
 
@@ -90,10 +90,10 @@ process tardis {
 	script:
 	"""
   tardis \
-  --input $bam \
+  --input $cram \
   --ref $ref \
   --sonic $sonic \
-  --output $bam_name ${extraflags}
+  --output $cram_name ${extraflags}
 	"""
 }
 
