@@ -28,7 +28,7 @@ sonic = Channel
 extraflags = ""
 extraflags += params.rp ? " --rp $params.rp" : ""
 extraflags += params.first_chr ? " --first-chr $params.first_chr" : ""
-extraflags += params.last_chr ? " --last-chr $params.last_ch" : ""
+extraflags += params.last_chr ? " --last-chr $params.last_chr" : ""
 
 // Header log info
 log.info """=======================================================
